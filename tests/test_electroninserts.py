@@ -1,6 +1,6 @@
 
-from electroninserts.cli import main
+import electroninserts
 
 
 def test_main():
-    assert main([]) == 0
+    assert electroninserts  # use your library here

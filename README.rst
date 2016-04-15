@@ -61,7 +61,7 @@ Overview
 
 Licence
 =======
-A simplified package for the spline modelling of electron insert factors
+A simplified more transparent package for the spline modelling of electron insert factors
 
 Copyright (C) 2016, Simon Grant Biggs
 

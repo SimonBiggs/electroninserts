@@ -26,7 +26,7 @@ setup(
     name='electroninserts',
     version='0.1.0',
     license='AGPLv3',
-    description='A simplified package for the spline modelling of electron insert factors',
+    description='A simplified more transparent package for the spline modelling of electron insert factors',
     long_description='%s\n%s' % (
         re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst')),
         re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
@@ -73,10 +73,5 @@ setup(
         # eg:
         #   'rst': ['docutils>=0.11'],
         #   ':python_version=="2.6"': ['argparse'],
-    },
-    entry_points={
-        'console_scripts': [
-            'electroninserts = electroninserts.cli:main',
-        ]
     },
 )
