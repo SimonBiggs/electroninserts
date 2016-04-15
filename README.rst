@@ -62,7 +62,8 @@ Overview
 Licence
 =======
 A simplified package for the spline modelling of electron insert factors
-Copyright (C) <YEAR>, Simon Grant Biggs
+
+Copyright (C) 2016, Simon Grant Biggs
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
