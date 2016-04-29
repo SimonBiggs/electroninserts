@@ -17,7 +17,9 @@ import matplotlib as mpl
 import bokeh as bkh
 
 from scipy.interpolate import SmoothBivariateSpline
-from scipy.optimize import minimize
+from scipy.optimize import minimize, basinhopping
+
+import shapely.geometry as geo
 
 viridis = mpl.pyplot.get_cmap('viridis')
 default_tools = "hover, box_zoom, reset"
@@ -239,9 +241,91 @@ def calculate_percent_prediction_differences(width_data, ratio_perim_area_data,
     return 100 * (factor_data - predictions) / factor_data
 
 
-def parameterise(input_dictionary):
+def calculate_poi(x, y):
+    insert = shapely_insert(x, y)
+    boundary = insert.boundary
+    centroid = insert.centroid
+
+    furthest_distance = np.hypot(
+        np.diff(insert.bounds[::2]),
+        np.diff(insert.bounds[1::2]))
+
+    def minimising_function(optimiser_input):
+        x, y = optimiser_input
+        point = geo.Point(x, y)
+
+        if insert.contains(point):
+            edge_distance = point.distance(boundary)
+        else:
+            edge_distance = -point.distance(boundary)
+
+        centroid_weighting = (
+            point.distance(centroid) / furthest_distance)
+
+        return centroid_weighting - edge_distance
+
+    x0 = np.array([centroid.coords.x, centroid.coords.y])
+    niter = 100
+    T = furthest_distance / 3
+    stepsize = furthest_distance / 2
+    output = basinhopping(
+        minimising_function, x0, niter=niter, T=T, stepsize=stepsize)
+
+    return output.x
+
+
+def calculate_width(x, y, poi):
 
     return None
+
+
+def calculate_length(x, y, width):
+
+    return None
+
+
+def parameterise_single_insert(x, y):
+    poi = calculate_poi(x, y)
+    width = calculate_width(x, y, poi)
+    length = calculate_length(x, y, width)
+
+    return width, length, poi
+
+
+def parameterise_inserts(to_be_parameterised):
+    for key in to_be_parameterised:
+        x, y = to_be_parameterised[key]['x'], to_be_parameterised[key]['y']
+        width, length, poi = parameterise_single_insert(x, y)
+
+        to_be_parameterised[key]['width'] = width
+        to_be_parameterised[key]['length'] = length
+        to_be_parameterised[key]['poi'] = poi
+
+    return to_be_parameterised
+
+
+def display_single_parameterisation(x, y, width, length, poi):
+
+    insert = shapely_insert(x, y)
+    circle = geo.Point(*poi).buffer(width/2)
+    ellipse = fitted_shapely_ellipse(x, y, width, length)
+
+    print(str(key) + ":")
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    display_shapely(ax, insert, alpha=0.5)
+    display_shapely(ax, circle, alpha=0)
+    display_shapely(ax, ellipse, alpha=0)
+
+    plt.show()
+
+
+def display_parameterisations(parameterised_inserts):
+    keys = np.sort([key for key in parameterised_inserts])
+    for key in keys:
+        display_single_parameterisation(*parameterised_inserts[key])
 
 
 def convert2_ratio_perim_area(width, length):
