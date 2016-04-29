@@ -13,13 +13,24 @@
 
 
 import numpy as np
+
+import matplotlib.pyplot
+import matplotlib.colors
 import matplotlib as mpl
+
+import bokeh.io
+import bokeh.plotting
+import bokeh.models
 import bokeh as bkh
+
+import shapely.geometry
+import shapely.affinity
+import shapely as shp
+
+import descartes as des
 
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import minimize, basinhopping
-
-import shapely.geometry as geo
 
 viridis = mpl.pyplot.get_cmap('viridis')
 default_tools = "hover, box_zoom, reset"
@@ -241,7 +252,11 @@ def calculate_percent_prediction_differences(width_data, ratio_perim_area_data,
     return 100 * (factor_data - predictions) / factor_data
 
 
-def calculate_poi(x, y):
+def shapely_insert(x, y):
+    return shp.geometry.Polygon(np.transpose((x, y)))
+
+
+def search_for_poi(x, y):
     insert = shapely_insert(x, y)
     boundary = insert.boundary
     centroid = insert.centroid
@@ -252,7 +267,7 @@ def calculate_poi(x, y):
 
     def minimising_function(optimiser_input):
         x, y = optimiser_input
-        point = geo.Point(x, y)
+        point = shp.geometry.Point(x, y)
 
         if insert.contains(point):
             edge_distance = point.distance(boundary)
@@ -264,28 +279,39 @@ def calculate_poi(x, y):
 
         return centroid_weighting - edge_distance
 
-    x0 = np.array([centroid.coords.x, centroid.coords.y])
+    x0 = np.squeeze(centroid.coords)
     niter = 100
     T = furthest_distance / 3
     stepsize = furthest_distance / 2
+    niter_success = 5
     output = basinhopping(
-        minimising_function, x0, niter=niter, T=T, stepsize=stepsize)
+        minimising_function, x0, niter=niter, T=T, stepsize=stepsize,
+        niter_success=niter_success)
 
     return output.x
 
 
 def calculate_width(x, y, poi):
+    insert = shapely_insert(x, y)
+    point = shp.geometry.Point(*poi)
 
-    return None
+    if insert.contains(point):
+        distance = point.distance(insert.boundary)
+    else:
+        raise Exception("poi not within insert")
+
+    return distance * 2
 
 
 def calculate_length(x, y, width):
+    insert = shapely_insert(x, y)
+    length = 4 * insert.area / (np.pi * width)
 
-    return None
+    return length
 
 
 def parameterise_single_insert(x, y):
-    poi = calculate_poi(x, y)
+    poi = search_for_poi(x, y)
     width = calculate_width(x, y, poi)
     length = calculate_length(x, y, width)
 
@@ -293,39 +319,80 @@ def parameterise_single_insert(x, y):
 
 
 def parameterise_inserts(to_be_parameterised):
-    for key in to_be_parameterised:
+    keys = np.sort([key for key in to_be_parameterised])
+    for key in keys:
         x, y = to_be_parameterised[key]['x'], to_be_parameterised[key]['y']
         width, length, poi = parameterise_single_insert(x, y)
 
-        to_be_parameterised[key]['width'] = width
-        to_be_parameterised[key]['length'] = length
-        to_be_parameterised[key]['poi'] = poi
+        to_be_parameterised[key]['width'] = float(round(width, 2))
+        to_be_parameterised[key]['length'] = float(round(length, 2))
+        to_be_parameterised[key]['poi'] = [
+            float(round(item, 2)) for item in poi]
 
-    return to_be_parameterised
+        print("{}:".format(key))
+        display_parameterisation(**to_be_parameterised[key])
 
 
-def display_single_parameterisation(x, y, width, length, poi):
-
+def fitted_shapely_ellipse(x, y, width, length):
     insert = shapely_insert(x, y)
-    circle = geo.Point(*poi).buffer(width/2)
+    unit_circle = shp.geometry.Point(0, 0).buffer(1)
+    initial_ellipse = shp.affinity.scale(
+        unit_circle, xfact=width/2, yfact=length/2)
+
+    def minimising_function(optimiser_input):
+        x, y, angle = optimiser_input
+        rotated = shp.affinity.rotate(
+            initial_ellipse, angle, use_radians=True)
+        translated = shp.affinity.translate(
+            rotated, xoff=x, yoff=y)
+
+        disjoint_area = (
+            translated.difference(insert).area +
+            insert.difference(translated).area)
+
+        return disjoint_area
+
+    x0 = np.append(
+        np.squeeze(insert.centroid.coords), np.pi/4)
+    niter = 100
+    T = insert.area / 4
+    stepsize = 3
+    niter_success = 3
+    output = basinhopping(
+        minimising_function, x0, niter=niter, T=T, stepsize=stepsize,
+        niter_success=niter_success)
+
+    x, y, angle = output.x
+    rotated = shp.affinity.rotate(
+        initial_ellipse, angle, use_radians=True)
+    ellipse = shp.affinity.translate(
+        rotated, xoff=x, yoff=y)
+
+    return ellipse
+
+
+def display_shapely(ax, shape, alpha=1):
+    patch = des.PolygonPatch(
+        shape,
+        fc=[0, 0, 0, alpha])
+    ax.add_patch(patch)
+
+
+def display_parameterisation(x, y, width, length, poi, **kwargs):
+    insert = shapely_insert(x, y)
+    circle = shp.geometry.Point(*poi).buffer(width/2)
     ellipse = fitted_shapely_ellipse(x, y, width, length)
 
-    print(str(key) + ":")
-
-    fig = plt.figure()
+    fig = mpl.pyplot.figure()
     ax = fig.add_subplot(111)
 
     display_shapely(ax, insert, alpha=0.5)
     display_shapely(ax, circle, alpha=0)
     display_shapely(ax, ellipse, alpha=0)
 
-    plt.show()
-
-
-def display_parameterisations(parameterised_inserts):
-    keys = np.sort([key for key in parameterised_inserts])
-    for key in keys:
-        display_single_parameterisation(*parameterised_inserts[key])
+    ax.axis("equal")
+    mpl.pyplot.grid(True)
+    mpl.pyplot.show()
 
 
 def convert2_ratio_perim_area(width, length):
@@ -674,7 +741,7 @@ def interactive(width_data, length_data, ratio_perim_area_data, factor_data,
         bkh.models.widgets.TableColumn(field="width", title="Width (cm)"),
         bkh.models.widgets.TableColumn(field="length", title="Length (cm)"),
         bkh.models.widgets.TableColumn(field="ratio_perim_area", title="P/A (cm^-1)"),
-        bkh.models.widgets.TableColumn(field="factor", title="Cutout factor"),
+        bkh.models.widgets.TableColumn(field="factor", title="Insert factor"),
         bkh.models.widgets.TableColumn(
             field="model_value", title="Model factor"),
         bkh.models.widgets.TableColumn(
