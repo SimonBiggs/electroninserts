@@ -65,7 +65,7 @@ def spline_model(width_test, ratio_perim_area_test,
 
 def _single_calculate_deformability(x_test, y_test, x_data, y_data, z_data):
     """Returns the result of the deformability test for a single datum test
-        point.
+    point.
 
     The deformability test applies a shift to the spline to determine whether
     or not sufficient information for modelling is available. For further
@@ -122,7 +122,7 @@ def _single_calculate_deformability(x_test, y_test, x_data, y_data, z_data):
 
 def calculate_deformability(x_test, y_test, x_data, y_data, z_data):
     """Returns the result of the deformability test for an array of test
-        points by looping over ``_single_calculate_deformability``.
+    points by looping over ``_single_calculate_deformability``.
 
     The deformability test applies a shift to the spline to determine whether
     or not sufficient information for modelling is available. For further
@@ -361,7 +361,7 @@ def find_colour(factor, vmin, vmax):
     return colour
 
 
-def bokeh_contourf(xx, yy, zz, hover_labels, hover_values):
+def bokeh_pcolor(xx, yy, zz, hover_labels, hover_values):
     dx = xx[0, 1] - xx[0, 0]
     dy = yy[1, 0] - yy[0, 0]
 
@@ -390,7 +390,7 @@ def bokeh_contourf(xx, yy, zz, hover_labels, hover_values):
     return fig
 
 
-def native_contourf(width_data, ratio_perim_area_data, factor_data):
+def native_pcolor(width_data, ratio_perim_area_data, factor_data):
     xx, yy, zz = create_native_mesh(
         width_data, ratio_perim_area_data, factor_data)
 
@@ -414,7 +414,7 @@ def native_contourf(width_data, ratio_perim_area_data, factor_data):
     hover_values = [
         hover_width, hover_length, hover_ratio_perim_area, hover_factor]
 
-    fig = bokeh_contourf(xx, yy, zz, hover_labels, hover_values)
+    fig = bokeh_pcolor(xx, yy, zz, hover_labels, hover_values)
 
     fig.title = "Native domain"
     fig.xaxis.axis_label = "Width (cm)"
@@ -423,7 +423,7 @@ def native_contourf(width_data, ratio_perim_area_data, factor_data):
     return fig
 
 
-def transformed_contourf(width_data, length_data, factor_data):
+def transformed_pcolor(width_data, length_data, factor_data):
     xx, yy, zz = create_transformed_mesh(width_data, length_data, factor_data)
 
     xx_flat = np.ravel(xx)
@@ -446,7 +446,7 @@ def transformed_contourf(width_data, length_data, factor_data):
     hover_values = [
         hover_width, hover_length, hover_ratio_perim_area, hover_factor]
 
-    fig = bokeh_contourf(
+    fig = bokeh_pcolor(
         xx, yy, zz, hover_labels, hover_values)
 
     fig.title = "Transformed domain"
@@ -723,7 +723,7 @@ def interactive(width_data, length_data, ratio_perim_area_data, factor_data,
     return bkh.io.vplot(p, data_table)
 
 
-def create_report(input_dictionary):
+def create_report_from_dictionary(input_dictionary):
     label = np.array([key for key in input_dictionary])
     width_data = np.array([input_dictionary[key]['width'] for key in label])
     length_data = np.array([input_dictionary[key]['length'] for key in label])
@@ -733,4 +733,13 @@ def create_report(input_dictionary):
     bkh.plotting.show(interactive(
         width_data, length_data, ratio_perim_area_data, factor_data, label))
 
-    return None
+
+def create_report_from_pandas(input_dataframe):
+    label = np.array(input_dataframe['label']).astype(str)
+    width_data = np.array(input_dataframe['width']).astype(float)
+    length_data = np.array(input_dataframe['length']).astype(float)
+    factor_data = np.array(input_dataframe['factor']).astype(float)
+    ratio_perim_area_data = convert2_ratio_perim_area(width_data, length_data)
+
+    bkh.plotting.show(interactive(
+        width_data, length_data, ratio_perim_area_data, factor_data, label))
