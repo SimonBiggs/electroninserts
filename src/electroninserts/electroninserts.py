@@ -32,6 +32,8 @@ import descartes as des
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import minimize, basinhopping
 
+import dicom
+
 viridis = mpl.pyplot.get_cmap('viridis')
 default_tools = "hover, box_zoom, reset"
 
@@ -393,6 +395,25 @@ def display_parameterisation(x, y, width, length, poi, **kwargs):
     ax.axis("equal")
     mpl.pyplot.grid(True)
     mpl.pyplot.show()
+
+
+def parameterise_dicom(filename):
+    dcm = dicom.read_file(filename, force=True)
+    block_data = np.array(dcm.BeamSequence[0].BlockSequence[0].BlockData)
+    x = np.array(block_data[0::2]).astype(float)/10
+    y = np.array(block_data[1::2]).astype(float)/10
+
+    return parameterise_single_insert(x, y)
+
+
+def display_dicom_parameterisation(filename):
+    dcm = dicom.read_file(filename, force=True)
+    block_data = np.array(dcm.BeamSequence[0].BlockSequence[0].BlockData)
+    x = np.array(block_data[0::2]).astype(float)/10
+    y = np.array(block_data[1::2]).astype(float)/10
+
+    width, length, poi = parameterise_single_insert(x, y)
+    display_parameterisation(x, y, width, length, poi)
 
 
 def convert2_ratio_perim_area(width, length):
