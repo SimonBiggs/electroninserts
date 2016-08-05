@@ -32,8 +32,6 @@ import descartes as des
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import minimize, basinhopping
 
-import dicom
-
 viridis = mpl.pyplot.get_cmap('viridis')
 default_tools = "hover, box_zoom, reset"
 
@@ -282,10 +280,10 @@ def search_for_poi(x, y):
         return centroid_weighting - edge_distance
 
     x0 = np.squeeze(centroid.coords)
-    niter = 100
+    niter = 200
     T = furthest_distance / 3
     stepsize = furthest_distance / 2
-    niter_success = 5
+    niter_success = 50
     output = basinhopping(
         minimising_function, x0, niter=niter, T=T, stepsize=stepsize,
         niter_success=niter_success)
@@ -395,25 +393,6 @@ def display_parameterisation(x, y, width, length, poi, **kwargs):
     ax.axis("equal")
     mpl.pyplot.grid(True)
     mpl.pyplot.show()
-
-
-def parameterise_dicom(filename):
-    dcm = dicom.read_file(filename, force=True)
-    block_data = np.array(dcm.BeamSequence[0].BlockSequence[0].BlockData)
-    x = np.array(block_data[0::2]).astype(float)/10
-    y = np.array(block_data[1::2]).astype(float)/10
-
-    return parameterise_single_insert(x, y)
-
-
-def display_dicom_parameterisation(filename):
-    dcm = dicom.read_file(filename, force=True)
-    block_data = np.array(dcm.BeamSequence[0].BlockSequence[0].BlockData)
-    x = np.array(block_data[0::2]).astype(float)/10
-    y = np.array(block_data[1::2]).astype(float)/10
-
-    width, length, poi = parameterise_single_insert(x, y)
-    display_parameterisation(x, y, width, length, poi)
 
 
 def convert2_ratio_perim_area(width, length):
@@ -629,7 +608,7 @@ def transformed_pcolor(width_data, length_data, factor_data):
 
 
 def bokeh_scatter(x, y, hover_labels, hover_values):
-    fig = bkh.figure(
+    fig = bkh.plotting.figure(
         tools=default_tools,
         plot_height=400, plot_width=600)
 
@@ -844,12 +823,6 @@ def interactive(width_data, length_data, ratio_perim_area_data, factor_data,
     render_vis = transformed.select(name='trans_visible')
     render_vis.nonselection_glyph = unselect_rectangle
 
-    tooltips = [
-        ("Width", "@hover_width"),
-        ("Length", "@hover_length"),
-        ("P/A", "@hover_ratio_perim_area"),
-        ("Factor", "@hover_factor"),
-    ]
     transformed.add_tools(bkh.models.HoverTool(
         tooltips=tooltips,
         renderers=render_vis))
@@ -902,8 +875,8 @@ def create_report_from_dictionary(input_dictionary):
     factor_data = np.array([input_dictionary[key]['factor'] for key in label])
     ratio_perim_area_data = convert2_ratio_perim_area(width_data, length_data)
 
-    bkh.plotting.show(interactive(
-        width_data, length_data, ratio_perim_area_data, factor_data, label))
+    return interactive(
+        width_data, length_data, ratio_perim_area_data, factor_data, label)
 
 
 def create_report_from_pandas(input_dataframe):
@@ -912,6 +885,6 @@ def create_report_from_pandas(input_dataframe):
     length_data = np.array(input_dataframe['length']).astype(float)
     factor_data = np.array(input_dataframe['factor']).astype(float)
     ratio_perim_area_data = convert2_ratio_perim_area(width_data, length_data)
-
-    bkh.plotting.show(interactive(
-        width_data, length_data, ratio_perim_area_data, factor_data, label))
+    
+    return interactive(
+        width_data, length_data, ratio_perim_area_data, factor_data, label)
